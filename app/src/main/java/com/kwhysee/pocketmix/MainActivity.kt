@@ -17,11 +17,11 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
+
         setContent {
             PocketMixTheme {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
-                    Greeting(
-                        name = "Android",
+                    PocketModelDemo(
                         modifier = Modifier.padding(innerPadding)
                     )
                 }
@@ -31,17 +31,38 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-fun Greeting(name: String, modifier: Modifier = Modifier) {
-    Text(
-        text = "Hello $name!",
-        modifier = modifier
+fun PocketModelDemo(modifier: Modifier = Modifier) {
+    val video = Video(
+        videoId = "sea-001",
+        title = "오후의 해변",
+        fileLocation = "sample/sea.mp4",
+        durationMs = 380_000L,
     )
+
+    val playback = PlaybackState(videoId = video.videoId)
+        .seekTo(90_000L, video.durationMs)
+        .withVolume(70)
+        .normalized(video.durationMs)
+
+    val pockets = emptyList<PocketState>()
+        .openPocket(video.videoId)
+
+    val summary = listOf(
+        "pocketMix 모델 확인",
+        "영상: ${video.title}",
+        "시청 위치: ${playback.positionMs / 1_000}초",
+        "음량: ${playback.volume}",
+        "열린 Pocket: ${pockets.visiblePockets().size}개",
+        "영상 정보: ${video.validationError() ?: "정상"}",
+    ).joinToString("\n")
+
+    Text(text = summary, modifier = modifier)
 }
 
 @Preview(showBackground = true)
 @Composable
-fun GreetingPreview() {
+fun PocketModelDemoPreview() {
     PocketMixTheme {
-        Greeting("Android")
+        PocketModelDemo()
     }
 }
