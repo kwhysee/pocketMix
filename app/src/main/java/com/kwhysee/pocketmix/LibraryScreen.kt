@@ -9,28 +9,18 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
 @Composable
-fun LibraryScreen(modifier: Modifier = Modifier) {
-    val videos = listOf(
-        Video("sea-001", "오후의 해변", "sample/sea.mp4", 380_000L),
-        Video("city-002", "도시의 저녁", "sample/city.mp4", 252_000L),
-    )
-
-    var pockets by remember {
-        mutableStateOf(emptyList<PocketState>())
-    }
-
-    var searchText by remember {
-        mutableStateOf("")
-    }
-
+fun LibraryScreen(
+    videos: List<Video>,
+    pockets: List<PocketState>,
+    searchText: String,
+    onSearchTextChange: (String) -> Unit,
+    onOpenPocket: (String) -> Unit,
+    modifier: Modifier = Modifier,
+) {
     val filteredVideos = videos.filter { video ->
         video.title.contains(searchText.trim(), ignoreCase = true)
     }
@@ -49,7 +39,7 @@ fun LibraryScreen(modifier: Modifier = Modifier) {
 
         OutlinedTextField(
             value = searchText,
-            onValueChange = { searchText = it },
+            onValueChange = onSearchTextChange,
             label = { Text("영상 검색") },
             singleLine = true,
             modifier = Modifier.fillMaxWidth(),
@@ -72,7 +62,7 @@ fun LibraryScreen(modifier: Modifier = Modifier) {
                 video = video,
                 selected = selected,
                 onSelect = {
-                    pockets = pockets.openPocket(video.videoId)
+                    onOpenPocket(video.videoId)
                 },
                 modifier = Modifier.fillMaxWidth(),
             )
