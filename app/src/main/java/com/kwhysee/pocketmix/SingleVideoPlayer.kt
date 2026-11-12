@@ -3,15 +3,25 @@ package com.kwhysee.pocketmix
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.annotation.OptIn
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalInspectionMode
+import androidx.compose.ui.unit.dp
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.media3.common.MediaItem
@@ -54,8 +64,11 @@ fun SingleVideoPlayer(
                 playbackState.volume.coerceIn(0, 100) / 100f
             }
             playWhenReady = false
-            prepare()
         }
+    }
+
+    var playbackErrorCode by remember(player) {
+        mutableStateOf<Int?>(null)
     }
 
     DisposableEffect(player, activity) {
@@ -72,6 +85,7 @@ fun SingleVideoPlayer(
 
         val listener = object : MediaPlayer.Listener {
             override fun onPlayerError(error: PlaybackException) {
+                playbackErrorCode = error.errorCode
                 Log.e(
                     "PocketMixPlayer",
                     "영상=${video.videoId}, 오류코드=${error.errorCode}, 원인=${error.cause?.message}",
@@ -109,6 +123,7 @@ fun SingleVideoPlayer(
 
         player.addListener(listener)
         activity.lifecycle.addObserver(observer)
+        player.prepare()
 
         onDispose {
             savePosition()
@@ -149,9 +164,31 @@ fun SingleVideoPlayer(
         }
     }
 
-    Player(
-        player = player,
-        modifier = modifier,
-        showControls = true,
-    )
+    if (playbackErrorCode == null) {
+        Player(
+            player = player,
+            modifier = modifier,
+            showControls = true,
+        )
+    } else {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .padding(8.dp),
+            verticalArrangement = Arrangement.Center,
+            horizontalAlignment = Alignment.CenterHorizontally,
+        ) {
+            Text("이 영상을 재생할 수 없습니다.")
+            Text("오류 코드: $playbackErrorCode")
+            TextButton(
+                onClick = {
+                    player.pause()
+                    playbackErrorCode = null
+                    player.prepare()
+                },
+            ) {
+                Text("다시 시도")
+            }
+        }
+    }
 }
