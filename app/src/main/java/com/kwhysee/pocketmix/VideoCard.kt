@@ -17,7 +17,7 @@ fun VideoCard(
     onSelect: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val totalSeconds = video.durationMs / 1_000
+    val totalSeconds = (video.durationMs + 500L) / 1_000L
     val minutes = totalSeconds / 60
     val seconds = (totalSeconds % 60).toString().padStart(2, '0')
 

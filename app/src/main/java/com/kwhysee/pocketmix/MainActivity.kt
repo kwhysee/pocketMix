@@ -102,7 +102,7 @@ fun WorkspaceScreenPreview() {
     PocketMixTheme {
         WorkspaceScreen(
             videos = SampleVideoCatalog.videos,
-            pockets = listOf(PocketState(videoId = "sea-001")),
+            pockets = listOf(PocketState(videoId = "sample-001")),
             onBackToLibrary = {},
         )
     }

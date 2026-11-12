@@ -3,16 +3,16 @@ package com.kwhysee.pocketmix
 object SampleVideoCatalog {
     val videos: List<Video> = listOf(
         Video(
-            videoId = "sea-001",
-            title = "오후의 해변",
-            fileLocation = "sample/sea.mp4",
-            durationMs = 380_000L,
+            videoId = "sample-001",
+            title = "홈 화면 녹화",
+            fileLocation = "asset:///videos/pm_sample_one.mp4",
+            durationMs = 5_657L,
         ),
         Video(
-            videoId = "city-002",
-            title = "도시의 저녁",
-            fileLocation = "sample/city.mp4",
-            durationMs = 252_000L,
+            videoId = "sample-002",
+            title = "설정 화면 녹화",
+            fileLocation = "asset:///videos/pm_sample_two.mp4",
+            durationMs = 7_888L,
         ),
     )
 }
