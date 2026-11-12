@@ -36,6 +36,8 @@ import kotlin.math.roundToInt
 fun WorkspaceScreen(
     videos: List<Video>,
     pockets: List<PocketState>,
+    playbackStates: Map<String, PlaybackState>,
+    onPlaybackStateChange: (PlaybackState) -> Unit,
     onBackToLibrary: () -> Unit,
     onPocketChange: (PocketState) -> Unit,
     onPocketSelect: (String) -> Unit,
@@ -133,14 +135,16 @@ fun WorkspaceScreen(
                 )
             }
 
-            // 뒤에 있는 Pocket부터 그린다. 목록의 마지막 Pocket이 맨 앞에 보인다.
             openPockets.forEach { pocket ->
                 key(pocket.videoId) {
                     PocketWindow(
                         pocket = pocket,
                         video = videos.findUsableVideo(pocket.videoId),
+                        playbackState = playbackStates[pocket.videoId]
+                            ?: PlaybackState(videoId = pocket.videoId),
                         boardWidthPx = boardWidthPx,
                         boardHeightPx = boardHeightPx,
+                        onPlaybackStateChange = onPlaybackStateChange,
                         onPocketChange = onPocketChange,
                         modifier = Modifier
                             .absoluteOffset {
@@ -164,12 +168,13 @@ fun WorkspaceScreen(
 private fun PocketWindow(
     pocket: PocketState,
     video: Video?,
+    playbackState: PlaybackState,
     boardWidthPx: Float,
     boardHeightPx: Float,
+    onPlaybackStateChange: (PlaybackState) -> Unit,
     onPocketChange: (PocketState) -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    // Pocket의 앞뒤 순서가 바뀌어도 드래그 중 최신 값을 사용한다.
     val latestPocket = rememberUpdatedState(pocket)
     val latestOnPocketChange = rememberUpdatedState(onPocketChange)
 
@@ -239,6 +244,8 @@ private fun PocketWindow(
                 } else {
                     SingleVideoPlayer(
                         video = video,
+                        playbackState = playbackState,
+                        onPlaybackStateChange = onPlaybackStateChange,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

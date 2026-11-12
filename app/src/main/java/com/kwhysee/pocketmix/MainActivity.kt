@@ -33,6 +33,9 @@ class MainActivity : ComponentActivity() {
                 var pockets by remember {
                     mutableStateOf(emptyList<PocketState>())
                 }
+                var playbackStates by remember {
+                    mutableStateOf(emptyMap<String, PlaybackState>())
+                }
                 var currentScreen by remember {
                     mutableStateOf(AppScreen.LIBRARY)
                 }
@@ -88,6 +91,11 @@ class MainActivity : ComponentActivity() {
                         AppScreen.WORKSPACE -> WorkspaceScreen(
                             videos = SampleVideoCatalog.videos,
                             pockets = pockets,
+                            playbackStates = playbackStates,
+                            onPlaybackStateChange = { updatedState ->
+                                playbackStates = playbackStates +
+                                        (updatedState.videoId to updatedState)
+                            },
                             onBackToLibrary = {
                                 currentScreen = AppScreen.LIBRARY
                             },
@@ -155,6 +163,8 @@ fun WorkspaceScreenPreview() {
                     order = 1,
                 ),
             ),
+            playbackStates = emptyMap(),
+            onPlaybackStateChange = {},
             onBackToLibrary = {},
             onPocketChange = {},
             onPocketSelect = {},
