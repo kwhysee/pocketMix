@@ -11,8 +11,10 @@ data class SavedWorkspace(
     val playbackStates: Map<String, PlaybackState>,
 )
 
-class PocketMixDatabase(context: Context) :
-    SQLiteOpenHelper(context, "pocketmix.db", null, 1) {
+class PocketMixDatabase(
+    context: Context,
+    databaseName: String = "pocketmix.db",
+) : SQLiteOpenHelper(context, databaseName, null, 1) {
 
     override fun onCreate(db: SQLiteDatabase) {
         db.execSQL(
