@@ -56,7 +56,27 @@ class MainActivity : ComponentActivity() {
                                 searchText = newText
                             },
                             onOpenPocket = { videoId ->
-                                pockets = pockets.openPocket(videoId)
+                                val nextOrder =
+                                    (pockets.maxOfOrNull { it.order } ?: -1) + 1
+
+                                pockets = if (pockets.any { it.videoId == videoId }) {
+                                    pockets.map { pocket ->
+                                        if (pocket.videoId == videoId) {
+                                            pocket.copy(
+                                                status = PocketStatus.OPEN,
+                                                order = nextOrder,
+                                            )
+                                        } else {
+                                            pocket
+                                        }
+                                    }
+                                } else {
+                                    pockets + PocketState(
+                                        videoId = videoId,
+                                        order = nextOrder,
+                                    )
+                                }
+
                                 currentScreen = AppScreen.WORKSPACE
                             },
                             modifier = Modifier.padding(innerPadding),
@@ -67,6 +87,27 @@ class MainActivity : ComponentActivity() {
                             pockets = pockets,
                             onBackToLibrary = {
                                 currentScreen = AppScreen.LIBRARY
+                            },
+                            onPocketChange = { updatedPocket ->
+                                pockets = pockets.map { pocket ->
+                                    if (pocket.videoId == updatedPocket.videoId) {
+                                        updatedPocket
+                                    } else {
+                                        pocket
+                                    }
+                                }
+                            },
+                            onPocketSelect = { videoId ->
+                                val nextOrder =
+                                    (pockets.maxOfOrNull { it.order } ?: -1) + 1
+
+                                pockets = pockets.map { pocket ->
+                                    if (pocket.videoId == videoId) {
+                                        pocket.copy(order = nextOrder)
+                                    } else {
+                                        pocket
+                                    }
+                                }
                             },
                             modifier = Modifier.padding(innerPadding),
                         )
@@ -104,6 +145,8 @@ fun WorkspaceScreenPreview() {
             videos = SampleVideoCatalog.videos,
             pockets = listOf(PocketState(videoId = "sample-001")),
             onBackToLibrary = {},
+            onPocketChange = {},
+            onPocketSelect = {},
         )
     }
 }
