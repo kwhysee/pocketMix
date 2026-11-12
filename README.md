@@ -26,6 +26,14 @@ pocketMix는 여러 영상을 각각의 Pocket 창에서 동시에 재생하는 
 
 같은 영상을 다시 선택하면 Pocket이 중복 생성되지 않고 기존 Pocket을 엽니다. Pocket을 닫아도 시청 위치와 음량 설정은 보존됩니다.
 
+## 시연 화면
+
+![영상 보관함](docs/screenshots/library.png)
+
+![두 Pocket 작업 공간](docs/screenshots/workspace.png)
+
+[두 Pocket 동작 시연 영상](docs/demo/pocketmix-demo.mp4)
+
 ## 데이터 구성
 
 | 데이터 | 저장 위치 | 내용 |
