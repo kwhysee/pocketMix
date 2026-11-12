@@ -4,15 +4,15 @@ object SampleVideoCatalog {
     val videos: List<Video> = listOf(
         Video(
             videoId = "sample-001",
-            title = "홈 화면 녹화",
+            title = "폭포",
             fileLocation = "asset:///videos/pm_sample_one.mp4",
-            durationMs = 5_657L,
+            durationMs = 10_000L,
         ),
         Video(
             videoId = "sample-002",
-            title = "설정 화면 녹화",
+            title = "숲길 주행",
             fileLocation = "asset:///videos/pm_sample_two.mp4",
-            durationMs = 7_888L,
+            durationMs = 10_000L,
         ),
     )
 }

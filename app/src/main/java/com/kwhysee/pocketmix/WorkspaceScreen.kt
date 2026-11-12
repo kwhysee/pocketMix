@@ -4,9 +4,9 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Button
-import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -21,6 +21,10 @@ fun WorkspaceScreen(
     modifier: Modifier = Modifier,
 ) {
     val visiblePockets = pockets.visiblePockets()
+    val frontPocket = visiblePockets.lastOrNull()
+    val currentVideo = frontPocket?.let { pocket ->
+        videos.findUsableVideo(pocket.videoId)
+    }
 
     Column(
         modifier = modifier
@@ -38,21 +42,19 @@ fun WorkspaceScreen(
             Text("영상 추가")
         }
 
-        if (visiblePockets.isEmpty()) {
-            Text("열린 Pocket이 없습니다.")
-        }
-
-        visiblePockets.forEach { pocket ->
-            val title = videos.findUsableVideo(pocket.videoId)?.title
-                ?: "영상 정보를 찾을 수 없습니다."
-
-            Card(modifier = Modifier.fillMaxWidth()) {
-                Text(
-                    text = title,
-                    modifier = Modifier.padding(16.dp),
-                    style = MaterialTheme.typography.titleMedium,
-                )
-            }
+        if (currentVideo == null) {
+            Text("재생할 영상을 찾을 수 없습니다.")
+        } else {
+            Text(
+                text = "현재 영상: ${currentVideo.title}",
+                style = MaterialTheme.typography.titleMedium,
+            )
+            SingleVideoPlayer(
+                video = currentVideo,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(360.dp),
+            )
         }
     }
 }
