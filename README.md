@@ -2,6 +2,11 @@
 
 pocketMix는 여러 영상을 각각의 Pocket 창에서 동시에 재생하는 Android 앱입니다. 사용자는 창의 위치와 크기를 바꾸고, 영상마다 재생 위치·음량·음소거를 따로 조절할 수 있습니다. 앱을 다시 열면 이전 작업 공간을 일시정지 상태로 복원합니다.
 
+## 바로가기
+
+- [프로토타입 릴리스 및 APK](https://github.com/kwhysee/pocketMix/releases/tag/v1.0.0-prototype.1)
+- [두 Pocket 동작 시연 영상](docs/demo/pocketmix-demo.mp4)
+
 ## 만들게 된 이유
 
 컴퓨터에서 여러 창을 배치하듯 모바일 화면에서도 여러 영상을 함께 보고 조작할 수 있는지 검증하기 위해 만들었습니다. 첫 버전은 pocketMix 앱 안에 저장된 영상을 대상으로 합니다.
