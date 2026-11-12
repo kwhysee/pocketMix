@@ -9,21 +9,28 @@ import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.absoluteOffset
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.rememberScrollState
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.input.pointer.pointerInput
@@ -49,6 +56,10 @@ fun WorkspaceScreen(
     val minimizedPockets = pockets
         .filter { it.status == PocketStatus.MINIMIZED }
     val frontPocket = openPockets.lastOrNull()
+
+    var audioPocketId by remember {
+        mutableStateOf<String?>(null)
+    }
 
     Column(
         modifier = modifier
@@ -146,6 +157,9 @@ fun WorkspaceScreen(
                         boardHeightPx = boardHeightPx,
                         onPlaybackStateChange = onPlaybackStateChange,
                         onPocketChange = onPocketChange,
+                        onAudioClick = {
+                            audioPocketId = pocket.videoId
+                        },
                         modifier = Modifier
                             .absoluteOffset {
                                 IntOffset(
@@ -162,6 +176,58 @@ fun WorkspaceScreen(
             }
         }
     }
+
+    val selectedAudioPocket = audioPocketId?.let { videoId ->
+        pockets.firstOrNull { it.videoId == videoId }
+    }
+
+    if (selectedAudioPocket != null) {
+        val audioState = playbackStates[selectedAudioPocket.videoId]
+            ?: PlaybackState(videoId = selectedAudioPocket.videoId)
+        val title = videos.findUsableVideo(selectedAudioPocket.videoId)?.title
+            ?: selectedAudioPocket.videoId
+
+        AlertDialog(
+            onDismissRequest = {
+                audioPocketId = null
+            },
+            title = {
+                Text("소리: $title")
+            },
+            text = {
+                Column {
+                    Text("음량 ${audioState.volume}%")
+                    Slider(
+                        value = audioState.volume.toFloat(),
+                        onValueChange = { value ->
+                            onPlaybackStateChange(
+                                audioState.withVolume(value.roundToInt())
+                            )
+                        },
+                        valueRange = 0f..100f,
+                    )
+                    TextButton(
+                        onClick = {
+                            onPlaybackStateChange(audioState.toggleMute())
+                        },
+                    ) {
+                        Text(
+                            if (audioState.muted) {
+                                "음소거 해제"
+                            } else {
+                                "음소거"
+                            }
+                        )
+                    }
+                }
+            },
+            confirmButton = {
+                TextButton(onClick = { audioPocketId = null }) {
+                    Text("닫기")
+                }
+            },
+        )
+    }
 }
 
 @Composable
@@ -173,6 +239,7 @@ private fun PocketWindow(
     boardHeightPx: Float,
     onPlaybackStateChange: (PlaybackState) -> Unit,
     onPocketChange: (PocketState) -> Unit,
+    onAudioClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val latestPocket = rememberUpdatedState(pocket)
@@ -251,37 +318,48 @@ private fun PocketWindow(
                 }
             }
 
-            Box(
+            Row(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(36.dp)
-                    .background(MaterialTheme.colorScheme.surfaceVariant)
-                    .pointerInput(
-                        pocket.videoId,
-                        boardWidthPx,
-                        boardHeightPx,
-                    ) {
-                        detectDragGestures { change, dragAmount ->
-                            change.consume()
-                            val current = latestPocket.value
-                            if (boardWidthPx > 0f && boardHeightPx > 0f) {
-                                latestOnPocketChange.value(
-                                    current.resizeTo(
-                                        newWidth = current.width +
-                                                dragAmount.x / boardWidthPx,
-                                        newHeight = current.height +
-                                                dragAmount.y / boardHeightPx,
-                                    )
-                                )
-                            }
-                        }
-                    },
-                contentAlignment = Alignment.CenterEnd,
+                    .height(48.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                verticalAlignment = Alignment.CenterVertically,
             ) {
-                Text(
-                    text = "크기 조절 ↘",
-                    modifier = Modifier.padding(horizontal = 12.dp),
-                )
+                TextButton(onClick = onAudioClick) {
+                    Text("소리")
+                }
+
+                Box(
+                    modifier = Modifier
+                        .weight(1f)
+                        .fillMaxHeight()
+                        .pointerInput(
+                            pocket.videoId,
+                            boardWidthPx,
+                            boardHeightPx,
+                        ) {
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                val current = latestPocket.value
+                                if (boardWidthPx > 0f && boardHeightPx > 0f) {
+                                    latestOnPocketChange.value(
+                                        current.resizeTo(
+                                            newWidth = current.width +
+                                                    dragAmount.x / boardWidthPx,
+                                            newHeight = current.height +
+                                                    dragAmount.y / boardHeightPx,
+                                        )
+                                    )
+                                }
+                            }
+                        },
+                    contentAlignment = Alignment.CenterEnd,
+                ) {
+                    Text(
+                        text = "크기 조절 ↘",
+                        modifier = Modifier.padding(horizontal = 12.dp),
+                    )
+                }
             }
         }
     }

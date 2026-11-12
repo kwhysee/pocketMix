@@ -47,6 +47,11 @@ fun SingleVideoPlayer(
         ExoPlayer.Builder(context).build().apply {
             setMediaItem(MediaItem.fromUri(video.fileLocation))
             seekTo(playbackState.positionMs.coerceAtLeast(0L))
+            volume = if (playbackState.muted) {
+                0f
+            } else {
+                playbackState.volume.coerceIn(0, 100) / 100f
+            }
             playWhenReady = false
             prepare()
         }
@@ -125,6 +130,15 @@ fun SingleVideoPlayer(
                     )
                 }
             }
+        }
+    }
+
+    // 값이 바뀔 때 해당 Pocket의 플레이어 음량만 갱신한다.
+    LaunchedEffect(player, playbackState.volume, playbackState.muted) {
+        player.volume = if (playbackState.muted) {
+            0f
+        } else {
+            playbackState.volume.coerceIn(0, 100) / 100f
         }
     }
 
