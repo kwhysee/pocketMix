@@ -2,6 +2,8 @@ package com.kwhysee.pocketmix
 
 import android.content.res.Configuration
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
@@ -24,20 +26,45 @@ private enum class AppScreen {
 }
 
 class MainActivity : ComponentActivity() {
+    private lateinit var database: PocketMixDatabase
+    private val saveHandler = Handler(Looper.getMainLooper())
+    private var pockets by mutableStateOf(emptyList<PocketState>())
+    private var playbackStates by mutableStateOf(
+        emptyMap<String, PlaybackState>()
+    )
+    private var videos: List<Video> = emptyList()
+
+    private val saveRunnable = Runnable {
+        database.saveState(pockets, playbackStates)
+    }
+
+    private fun scheduleSave() {
+        saveHandler.removeCallbacks(saveRunnable)
+        saveHandler.postDelayed(saveRunnable, 500L)
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
 
+        database = PocketMixDatabase(applicationContext)
+        val saved = database.loadWorkspace()
+        videos = saved.videos
+        pockets = saved.pockets
+        playbackStates = saved.playbackStates
+
         setContent {
             PocketMixTheme {
-                var pockets by remember {
-                    mutableStateOf(emptyList<PocketState>())
-                }
-                var playbackStates by remember {
-                    mutableStateOf(emptyMap<String, PlaybackState>())
-                }
                 var currentScreen by remember {
-                    mutableStateOf(AppScreen.LIBRARY)
+                    mutableStateOf(
+                        if (pockets.any {
+                                it.status != PocketStatus.CLOSED
+                            }) {
+                            AppScreen.WORKSPACE
+                        } else {
+                            AppScreen.LIBRARY
+                        }
+                    )
                 }
                 var searchText by remember {
                     mutableStateOf("")
@@ -52,7 +79,7 @@ class MainActivity : ComponentActivity() {
                 Scaffold(modifier = Modifier.fillMaxSize()) { innerPadding ->
                     when (currentScreen) {
                         AppScreen.LIBRARY -> LibraryScreen(
-                            videos = SampleVideoCatalog.videos,
+                            videos = videos,
                             pockets = pockets,
                             searchText = searchText,
                             onSearchTextChange = { newText ->
@@ -62,7 +89,9 @@ class MainActivity : ComponentActivity() {
                                 val nextOrder =
                                     (pockets.maxOfOrNull { it.order } ?: -1) + 1
 
-                                pockets = if (pockets.any { it.videoId == videoId }) {
+                                pockets = if (pockets.any {
+                                        it.videoId == videoId
+                                    }) {
                                     pockets.map { pocket ->
                                         if (pocket.videoId == videoId) {
                                             pocket.copy(
@@ -83,18 +112,20 @@ class MainActivity : ComponentActivity() {
                                     )
                                 }
 
+                                scheduleSave()
                                 currentScreen = AppScreen.WORKSPACE
                             },
                             modifier = Modifier.padding(innerPadding),
                         )
 
                         AppScreen.WORKSPACE -> WorkspaceScreen(
-                            videos = SampleVideoCatalog.videos,
+                            videos = videos,
                             pockets = pockets,
                             playbackStates = playbackStates,
                             onPlaybackStateChange = { updatedState ->
                                 playbackStates = playbackStates +
                                         (updatedState.videoId to updatedState)
+                                scheduleSave()
                             },
                             onBackToLibrary = {
                                 currentScreen = AppScreen.LIBRARY
@@ -107,6 +138,7 @@ class MainActivity : ComponentActivity() {
                                         pocket
                                     }
                                 }
+                                scheduleSave()
                             },
                             onPocketSelect = { videoId ->
                                 val nextOrder =
@@ -119,9 +151,11 @@ class MainActivity : ComponentActivity() {
                                         pocket
                                     }
                                 }
+                                scheduleSave()
                             },
                             onArrangePockets = {
                                 pockets = pockets.arrangeOpenPockets()
+                                scheduleSave()
                             },
                             modifier = Modifier.padding(innerPadding),
                         )
@@ -129,6 +163,18 @@ class MainActivity : ComponentActivity() {
                 }
             }
         }
+    }
+
+    override fun onStop() {
+        saveHandler.removeCallbacks(saveRunnable)
+        database.saveState(pockets, playbackStates)
+        super.onStop()
+    }
+
+    override fun onDestroy() {
+        saveHandler.removeCallbacks(saveRunnable)
+        database.close()
+        super.onDestroy()
     }
 }
 

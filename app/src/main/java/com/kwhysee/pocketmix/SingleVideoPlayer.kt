@@ -120,7 +120,7 @@ fun SingleVideoPlayer(
 
     LaunchedEffect(player) {
         while (true) {
-            delay(5_000L)
+            delay(15_000L)
             if (player.isPlaying) {
                 val positionMs = player.currentPosition.coerceAtLeast(0L)
                 val previousState = latestPlaybackState.value
