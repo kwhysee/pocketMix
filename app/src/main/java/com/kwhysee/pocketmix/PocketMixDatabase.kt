@@ -61,6 +61,21 @@ class PocketMixDatabase(context: Context) :
         error("DB 버전 $oldVersion → $newVersion 변경에는 마이그레이션이 필요합니다.")
     }
 
+    fun addVideo(video: Video) {
+        video.validationError()?.let { error(it) }
+
+        writableDatabase.insertOrThrow(
+            "videos",
+            null,
+            ContentValues().apply {
+                put("video_id", video.videoId)
+                put("title", video.title)
+                put("file_location", video.fileLocation)
+                put("duration_ms", video.durationMs)
+            },
+        )
+    }
+
     fun loadWorkspace(): SavedWorkspace {
         val db = readableDatabase
 

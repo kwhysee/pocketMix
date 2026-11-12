@@ -1,6 +1,7 @@
 package com.kwhysee.pocketmix
 
 import android.content.res.Configuration
+import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -9,20 +10,22 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -52,11 +55,22 @@ class MainActivity : ComponentActivity() {
     private val saveHandler = Handler(Looper.getMainLooper())
     private var databaseStatus by mutableStateOf(DatabaseStatus.LOADING)
     private var currentScreen by mutableStateOf(AppScreen.LIBRARY)
+    private var searchText by mutableStateOf("")
+    private var isImportingVideo by mutableStateOf(false)
+    private var importError by mutableStateOf<String?>(null)
     private var pockets by mutableStateOf(emptyList<PocketState>())
     private var playbackStates by mutableStateOf(
         emptyMap<String, PlaybackState>()
     )
     private var videos by mutableStateOf(emptyList<Video>())
+
+    private val pickVideo = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            importSelectedVideo(uri)
+        }
+    }
 
     private val saveRunnable = Runnable {
         database.saveState(pockets, playbackStates)
@@ -97,6 +111,28 @@ class MainActivity : ComponentActivity() {
         }
     }
 
+    private fun importSelectedVideo(uri: Uri) {
+        if (isImportingVideo) return
+        isImportingVideo = true
+
+        lifecycleScope.launch {
+            try {
+                val video = withContext(Dispatchers.IO) {
+                    importVideoFile(applicationContext, uri, database)
+                }
+                videos = (videos + video).sortedBy { it.videoId }
+                searchText = ""
+            } catch (error: CancellationException) {
+                throw error
+            } catch (error: Exception) {
+                Log.e("PocketMixImport", "영상 가져오기 실패", error)
+                importError = "영상을 가져오지 못했습니다. MP4 파일을 확인하세요."
+            } finally {
+                isImportingVideo = false
+            }
+        }
+    }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
@@ -105,10 +141,6 @@ class MainActivity : ComponentActivity() {
 
         setContent {
             PocketMixTheme {
-                var searchText by remember {
-                    mutableStateOf("")
-                }
-
                 when (databaseStatus) {
                     DatabaseStatus.LOADING -> {
                         Box(
@@ -191,6 +223,10 @@ class MainActivity : ComponentActivity() {
                                         scheduleSave()
                                         currentScreen = AppScreen.WORKSPACE
                                     },
+                                    onImportVideo = {
+                                        pickVideo.launch(arrayOf("video/mp4"))
+                                    },
+                                    isImportingVideo = isImportingVideo,
                                     modifier = Modifier.padding(innerPadding),
                                 )
 
@@ -238,6 +274,19 @@ class MainActivity : ComponentActivity() {
                             }
                         }
                     }
+                }
+
+                if (importError != null) {
+                    AlertDialog(
+                        onDismissRequest = { importError = null },
+                        title = { Text("영상 가져오기 실패") },
+                        text = { Text(importError ?: "") },
+                        confirmButton = {
+                            TextButton(onClick = { importError = null }) {
+                                Text("확인")
+                            }
+                        },
+                    )
                 }
             }
         }
@@ -305,6 +354,8 @@ fun LibraryScreenPreview() {
             searchText = "",
             onSearchTextChange = {},
             onOpenPocket = {},
+            onImportVideo = {},
+            isImportingVideo = false,
         )
     }
 }
