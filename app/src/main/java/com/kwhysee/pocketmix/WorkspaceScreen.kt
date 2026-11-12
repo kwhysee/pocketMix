@@ -27,6 +27,7 @@ import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.key
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
@@ -48,6 +49,7 @@ fun WorkspaceScreen(
     onBackToLibrary: () -> Unit,
     onPocketChange: (PocketState) -> Unit,
     onPocketSelect: (String) -> Unit,
+    onArrangePockets: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val openPockets = pockets
@@ -59,6 +61,9 @@ fun WorkspaceScreen(
 
     var audioPocketId by remember {
         mutableStateOf<String?>(null)
+    }
+    var pauseAllRequest by remember {
+        mutableIntStateOf(0)
     }
 
     Column(
@@ -79,6 +84,23 @@ fun WorkspaceScreen(
             Text("열린 Pocket ${openPockets.size}개")
             Button(onClick = onBackToLibrary) {
                 Text("영상 추가")
+            }
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(8.dp),
+        ) {
+            Button(
+                onClick = { pauseAllRequest += 1 },
+                enabled = openPockets.isNotEmpty(),
+            ) {
+                Text("모두 일시정지")
+            }
+            OutlinedButton(
+                onClick = onArrangePockets,
+                enabled = openPockets.isNotEmpty(),
+            ) {
+                Text("창 정렬")
             }
         }
 
@@ -153,6 +175,7 @@ fun WorkspaceScreen(
                         video = videos.findUsableVideo(pocket.videoId),
                         playbackState = playbackStates[pocket.videoId]
                             ?: PlaybackState(videoId = pocket.videoId),
+                        pauseAllRequest = pauseAllRequest,
                         boardWidthPx = boardWidthPx,
                         boardHeightPx = boardHeightPx,
                         onPlaybackStateChange = onPlaybackStateChange,
@@ -235,6 +258,7 @@ private fun PocketWindow(
     pocket: PocketState,
     video: Video?,
     playbackState: PlaybackState,
+    pauseAllRequest: Int,
     boardWidthPx: Float,
     boardHeightPx: Float,
     onPlaybackStateChange: (PlaybackState) -> Unit,
@@ -313,6 +337,7 @@ private fun PocketWindow(
                         video = video,
                         playbackState = playbackState,
                         onPlaybackStateChange = onPlaybackStateChange,
+                        pauseAllRequest = pauseAllRequest,
                         modifier = Modifier.fillMaxSize(),
                     )
                 }

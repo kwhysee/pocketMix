@@ -120,11 +120,44 @@ class MainActivity : ComponentActivity() {
                                     }
                                 }
                             },
+                            onArrangePockets = {
+                                pockets = pockets.arrangeOpenPockets()
+                            },
                             modifier = Modifier.padding(innerPadding),
                         )
                     }
                 }
             }
+        }
+    }
+}
+
+/**
+ * 현재 열려 있는 Pocket만 정렬한다.
+ * 최소화하거나 닫은 Pocket은 원래 상태와 좌표를 유지한다.
+ */
+private fun List<PocketState>.arrangeOpenPockets(): List<PocketState> {
+    val openIds = this
+        .filter { it.status == PocketStatus.OPEN }
+        .sortedBy { it.order }
+        .map { it.videoId }
+
+    return map { pocket ->
+        val index = openIds.indexOf(pocket.videoId)
+
+        when {
+            pocket.status != PocketStatus.OPEN || index < 0 -> pocket
+
+            openIds.size == 1 -> pocket
+                .resizeTo(newWidth = 0.90f, newHeight = 0.80f)
+                .moveTo(newX = 0.05f, newY = 0.10f)
+
+            else -> pocket
+                .resizeTo(newWidth = 0.90f, newHeight = 0.46f)
+                .moveTo(
+                    newX = 0.05f,
+                    newY = if (index == 0) 0.02f else 0.52f,
+                )
         }
     }
 }
@@ -168,6 +201,7 @@ fun WorkspaceScreenPreview() {
             onBackToLibrary = {},
             onPocketChange = {},
             onPocketSelect = {},
+            onArrangePockets = {},
         )
     }
 }

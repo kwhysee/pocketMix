@@ -30,6 +30,7 @@ fun SingleVideoPlayer(
     video: Video,
     playbackState: PlaybackState,
     onPlaybackStateChange: (PlaybackState) -> Unit,
+    pauseAllRequest: Int,
     modifier: Modifier = Modifier,
 ) {
     if (LocalInspectionMode.current) {
@@ -133,12 +134,18 @@ fun SingleVideoPlayer(
         }
     }
 
-    // 값이 바뀔 때 해당 Pocket의 플레이어 음량만 갱신한다.
     LaunchedEffect(player, playbackState.volume, playbackState.muted) {
         player.volume = if (playbackState.muted) {
             0f
         } else {
             playbackState.volume.coerceIn(0, 100) / 100f
+        }
+    }
+
+    // 요청 번호가 바뀔 때만 실행된다. 이후 한 영상만 다시 재생할 수 있다.
+    LaunchedEffect(player, pauseAllRequest) {
+        if (pauseAllRequest > 0) {
+            player.pause()
         }
     }
 
