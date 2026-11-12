@@ -71,8 +71,11 @@ class MainActivity : ComponentActivity() {
                                         }
                                     }
                                 } else {
+                                    val isFirstPocket = pockets.isEmpty()
                                     pockets + PocketState(
                                         videoId = videoId,
+                                        x = if (isFirstPocket) 0.05f else 0.12f,
+                                        y = if (isFirstPocket) 0.08f else 0.53f,
                                         order = nextOrder,
                                     )
                                 }
@@ -143,7 +146,15 @@ fun WorkspaceScreenPreview() {
     PocketMixTheme {
         WorkspaceScreen(
             videos = SampleVideoCatalog.videos,
-            pockets = listOf(PocketState(videoId = "sample-001")),
+            pockets = listOf(
+                PocketState(videoId = "sample-001"),
+                PocketState(
+                    videoId = "sample-002",
+                    x = 0.12f,
+                    y = 0.53f,
+                    order = 1,
+                ),
+            ),
             onBackToLibrary = {},
             onPocketChange = {},
             onPocketSelect = {},

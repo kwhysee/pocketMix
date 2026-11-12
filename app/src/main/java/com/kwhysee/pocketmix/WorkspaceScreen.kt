@@ -22,6 +22,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.key
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -46,13 +47,6 @@ fun WorkspaceScreen(
     val minimizedPockets = pockets
         .filter { it.status == PocketStatus.MINIMIZED }
     val frontPocket = openPockets.lastOrNull()
-    val frontVideo = frontPocket?.let { pocket ->
-        videos.findUsableVideo(pocket.videoId)
-    }
-
-    // 드래그가 진행되는 동안 가장 최근의 Pocket 값과 콜백을 사용한다.
-    val latestPocket = rememberUpdatedState(frontPocket)
-    val latestOnPocketChange = rememberUpdatedState(onPocketChange)
 
     Column(
         modifier = modifier
@@ -132,139 +126,155 @@ fun WorkspaceScreen(
             val boardWidthPx = constraints.maxWidth.toFloat()
             val boardHeightPx = constraints.maxHeight.toFloat()
 
-            if (frontPocket == null) {
+            if (openPockets.isEmpty()) {
                 Text(
                     text = "열린 Pocket이 없습니다. '영상 추가'로 영상을 선택하세요.",
                     modifier = Modifier.align(Alignment.Center),
                 )
-            } else {
-                Card(
-                    modifier = Modifier
-                        .absoluteOffset {
-                            IntOffset(
-                                x = (frontPocket.x * boardWidthPx).roundToInt(),
-                                y = (frontPocket.y * boardHeightPx).roundToInt(),
-                            )
-                        }
-                        .size(
-                            width = maxWidth * frontPocket.width,
-                            height = maxHeight * frontPocket.height,
-                        ),
-                ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
-                        Row(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .background(MaterialTheme.colorScheme.surfaceVariant),
-                            verticalAlignment = Alignment.CenterVertically,
-                        ) {
-                            Text(
-                                text = frontVideo?.title ?: frontPocket.videoId,
-                                modifier = Modifier
-                                    .weight(1f)
-                                    .pointerInput(
-                                        frontPocket.videoId,
-                                        boardWidthPx,
-                                        boardHeightPx,
-                                    ) {
-                                        detectDragGestures { change, dragAmount ->
-                                            change.consume()
-                                            val pocket = latestPocket.value
-                                            if (pocket != null &&
-                                                boardWidthPx > 0f &&
-                                                boardHeightPx > 0f
-                                            ) {
-                                                latestOnPocketChange.value(
-                                                    pocket.moveTo(
-                                                        newX = pocket.x +
-                                                                dragAmount.x / boardWidthPx,
-                                                        newY = pocket.y +
-                                                                dragAmount.y / boardHeightPx,
-                                                    )
-                                                )
-                                            }
-                                        }
-                                    }
-                                    .padding(8.dp),
-                                maxLines = 1,
-                                overflow = TextOverflow.Ellipsis,
-                            )
-                            TextButton(
-                                onClick = {
-                                    onPocketChange(
-                                        frontPocket.copy(
-                                            status = PocketStatus.MINIMIZED
-                                        )
-                                    )
-                                },
-                            ) {
-                                Text("최소화")
-                            }
-                            TextButton(
-                                onClick = {
-                                    onPocketChange(
-                                        frontPocket.copy(
-                                            status = PocketStatus.CLOSED
-                                        )
-                                    )
-                                },
-                            ) {
-                                Text("닫기")
-                            }
-                        }
+            }
 
-                        Box(
-                            modifier = Modifier
-                                .weight(1f)
-                                .fillMaxWidth(),
+            // 뒤에 있는 Pocket부터 그린다. 목록의 마지막 Pocket이 맨 앞에 보인다.
+            openPockets.forEach { pocket ->
+                key(pocket.videoId) {
+                    PocketWindow(
+                        pocket = pocket,
+                        video = videos.findUsableVideo(pocket.videoId),
+                        boardWidthPx = boardWidthPx,
+                        boardHeightPx = boardHeightPx,
+                        onPocketChange = onPocketChange,
+                        modifier = Modifier
+                            .absoluteOffset {
+                                IntOffset(
+                                    x = (pocket.x * boardWidthPx).roundToInt(),
+                                    y = (pocket.y * boardHeightPx).roundToInt(),
+                                )
+                            }
+                            .size(
+                                width = maxWidth * pocket.width,
+                                height = maxHeight * pocket.height,
+                            ),
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun PocketWindow(
+    pocket: PocketState,
+    video: Video?,
+    boardWidthPx: Float,
+    boardHeightPx: Float,
+    onPocketChange: (PocketState) -> Unit,
+    modifier: Modifier = Modifier,
+) {
+    // Pocket의 앞뒤 순서가 바뀌어도 드래그 중 최신 값을 사용한다.
+    val latestPocket = rememberUpdatedState(pocket)
+    val latestOnPocketChange = rememberUpdatedState(onPocketChange)
+
+    Card(modifier = modifier) {
+        Column(modifier = Modifier.fillMaxSize()) {
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .background(MaterialTheme.colorScheme.surfaceVariant),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    text = video?.title ?: pocket.videoId,
+                    modifier = Modifier
+                        .weight(1f)
+                        .pointerInput(
+                            pocket.videoId,
+                            boardWidthPx,
+                            boardHeightPx,
                         ) {
-                            if (frontVideo == null) {
-                                Text("이 영상을 찾을 수 없습니다.")
-                            } else {
-                                SingleVideoPlayer(
-                                    video = frontVideo,
-                                    modifier = Modifier.fillMaxSize(),
+                            detectDragGestures { change, dragAmount ->
+                                change.consume()
+                                val current = latestPocket.value
+                                if (boardWidthPx > 0f && boardHeightPx > 0f) {
+                                    latestOnPocketChange.value(
+                                        current.moveTo(
+                                            newX = current.x +
+                                                    dragAmount.x / boardWidthPx,
+                                            newY = current.y +
+                                                    dragAmount.y / boardHeightPx,
+                                        )
+                                    )
+                                }
+                            }
+                        }
+                        .padding(8.dp),
+                    maxLines = 1,
+                    overflow = TextOverflow.Ellipsis,
+                )
+                TextButton(
+                    onClick = {
+                        onPocketChange(
+                            pocket.copy(status = PocketStatus.MINIMIZED)
+                        )
+                    },
+                ) {
+                    Text("최소화")
+                }
+                TextButton(
+                    onClick = {
+                        onPocketChange(
+                            pocket.copy(status = PocketStatus.CLOSED)
+                        )
+                    },
+                ) {
+                    Text("닫기")
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .weight(1f)
+                    .fillMaxWidth(),
+            ) {
+                if (video == null) {
+                    Text("이 영상을 찾을 수 없습니다.")
+                } else {
+                    SingleVideoPlayer(
+                        video = video,
+                        modifier = Modifier.fillMaxSize(),
+                    )
+                }
+            }
+
+            Box(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .height(36.dp)
+                    .background(MaterialTheme.colorScheme.surfaceVariant)
+                    .pointerInput(
+                        pocket.videoId,
+                        boardWidthPx,
+                        boardHeightPx,
+                    ) {
+                        detectDragGestures { change, dragAmount ->
+                            change.consume()
+                            val current = latestPocket.value
+                            if (boardWidthPx > 0f && boardHeightPx > 0f) {
+                                latestOnPocketChange.value(
+                                    current.resizeTo(
+                                        newWidth = current.width +
+                                                dragAmount.x / boardWidthPx,
+                                        newHeight = current.height +
+                                                dragAmount.y / boardHeightPx,
+                                    )
                                 )
                             }
                         }
-
-                        Box(
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .height(36.dp)
-                                .background(MaterialTheme.colorScheme.surfaceVariant)
-                                .pointerInput(
-                                    frontPocket.videoId,
-                                    boardWidthPx,
-                                    boardHeightPx,
-                                ) {
-                                    detectDragGestures { change, dragAmount ->
-                                        change.consume()
-                                        val pocket = latestPocket.value
-                                        if (pocket != null &&
-                                            boardWidthPx > 0f &&
-                                            boardHeightPx > 0f
-                                        ) {
-                                            latestOnPocketChange.value(
-                                                pocket.resizeTo(
-                                                    newWidth = pocket.width +
-                                                            dragAmount.x / boardWidthPx,
-                                                    newHeight = pocket.height +
-                                                            dragAmount.y / boardHeightPx,
-                                                )
-                                            )
-                                        }
-                                    }
-                                },
-                            contentAlignment = Alignment.CenterEnd,
-                        ) {
-                            Text(
-                                text = "크기 조절 ↘",
-                                modifier = Modifier.padding(horizontal = 12.dp),
-                            )
-                        }
-                    }
-                }
+                    },
+                contentAlignment = Alignment.CenterEnd,
+            ) {
+                Text(
+                    text = "크기 조절 ↘",
+                    modifier = Modifier.padding(horizontal = 12.dp),
+                )
             }
         }
     }
