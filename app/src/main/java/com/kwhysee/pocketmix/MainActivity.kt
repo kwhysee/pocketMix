@@ -5,6 +5,7 @@ import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.provider.Settings
 import android.util.Log
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
@@ -36,7 +37,9 @@ import com.kwhysee.pocketmix.ui.theme.PocketMixTheme
 import kotlinx.coroutines.CancellationException
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withContext
+import kotlinx.coroutines.withTimeoutOrNull
 
 private enum class AppScreen {
     LIBRARY,
@@ -63,6 +66,17 @@ class MainActivity : ComponentActivity() {
         emptyMap<String, PlaybackState>()
     )
     private var videos by mutableStateOf(emptyList<Video>())
+    private var returningFromFloatingWindows = false
+
+    private val requestOverlayPermission = registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        if (Settings.canDrawOverlays(this)) {
+            startFloatingWindows()
+        } else {
+            importError = "떠 있는 창을 사용하려면 '다른 앱 위에 표시' 권한이 필요합니다."
+        }
+    }
 
     private val pickVideo = registerForActivityResult(
         ActivityResultContracts.OpenDocument()
@@ -129,6 +143,71 @@ class MainActivity : ComponentActivity() {
                 importError = "영상을 가져오지 못했습니다. MP4 파일을 확인하세요."
             } finally {
                 isImportingVideo = false
+            }
+        }
+    }
+
+    private fun startFloatingWindows() {
+        val videoIds = pockets
+            .filter { it.status == PocketStatus.OPEN }
+            .map { it.videoId }
+            .filter { id -> videos.findUsableVideo(id) != null }
+
+        if (videoIds.isEmpty()) {
+            importError = "떠 있는 창으로 열 영상이 없습니다."
+            return
+        }
+
+        if (!Settings.canDrawOverlays(this)) {
+            requestOverlayPermission.launch(
+                android.content.Intent(
+                    Settings.ACTION_MANAGE_OVERLAY_PERMISSION,
+                    Uri.parse("package:$packageName"),
+                )
+            )
+            return
+        }
+
+        // 플레이어를 멈추고 현재 위치를 직접 읽은 뒤, 작업 공간에서 해제한다.
+        val currentPositions = ActivePocketPlayers.pauseAndReadPositions()
+        playbackStates = playbackStates.toMutableMap().apply {
+            currentPositions.forEach { (videoId, positionMs) ->
+                this[videoId] = (this[videoId]
+                    ?: PlaybackState(videoId = videoId)).copy(positionMs = positionMs)
+            }
+        }
+        currentScreen = AppScreen.LIBRARY
+        lifecycleScope.launch {
+            val playersReleased = withTimeoutOrNull(1_500L) {
+                while (ActivePocketPlayers.hasActivePlayers()) delay(16L)
+                true
+            } ?: false
+            if (!playersReleased) {
+                currentScreen = AppScreen.WORKSPACE
+                importError = "기존 영상 플레이어를 정리하지 못했습니다. 다시 시도하세요."
+                return@launch
+            }
+            try {
+                saveHandler.removeCallbacks(saveRunnable)
+                database.saveState(pockets, playbackStates)
+                val intent = android.content.Intent(
+                    this@MainActivity,
+                    FloatingVideoService::class.java,
+                ).apply {
+                    action = FloatingVideoService.ACTION_START
+                    putStringArrayListExtra(
+                        FloatingVideoService.EXTRA_VIDEO_IDS,
+                        ArrayList(videoIds),
+                    )
+                }
+                returningFromFloatingWindows = true
+                startForegroundService(intent)
+                moveTaskToBack(true)
+            } catch (error: Exception) {
+                returningFromFloatingWindows = false
+                currentScreen = AppScreen.WORKSPACE
+                Log.e("PocketMixFloating", "떠 있는 창 시작 실패", error)
+                importError = "떠 있는 창을 시작하지 못했습니다."
             }
         }
     }
@@ -252,19 +331,7 @@ class MainActivity : ComponentActivity() {
                                         }
                                         scheduleSave()
                                     },
-                                    onPocketSelect = { videoId ->
-                                        val nextOrder =
-                                            (pockets.maxOfOrNull { it.order } ?: -1) + 1
-
-                                        pockets = pockets.map { pocket ->
-                                            if (pocket.videoId == videoId) {
-                                                pocket.copy(order = nextOrder)
-                                            } else {
-                                                pocket
-                                            }
-                                        }
-                                        scheduleSave()
-                                    },
+                                    onStartFloatingWindows = { startFloatingWindows() },
                                     onArrangePockets = {
                                         pockets = pockets.arrangeOpenPockets()
                                         scheduleSave()
@@ -279,7 +346,7 @@ class MainActivity : ComponentActivity() {
                 if (importError != null) {
                     AlertDialog(
                         onDismissRequest = { importError = null },
-                        title = { Text("영상 가져오기 실패") },
+                        title = { Text("작업을 완료하지 못했습니다") },
                         text = { Text(importError ?: "") },
                         confirmButton = {
                             TextButton(onClick = { importError = null }) {
@@ -291,15 +358,30 @@ class MainActivity : ComponentActivity() {
             }
         }
 
-        loadFromDatabase()
+        if (!FloatingVideoService.hasActiveSession()) {
+            loadFromDatabase()
+        }
     }
 
     override fun onStop() {
         saveHandler.removeCallbacks(saveRunnable)
-        if (databaseStatus == DatabaseStatus.READY) {
+        if (databaseStatus == DatabaseStatus.READY &&
+            !returningFromFloatingWindows
+        ) {
             database.saveState(pockets, playbackStates)
         }
         super.onStop()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (::database.isInitialized &&
+            (returningFromFloatingWindows || FloatingVideoService.hasActiveSession())
+        ) {
+            FloatingVideoService.finishActiveSession()
+            returningFromFloatingWindows = false
+            loadFromDatabase()
+        }
     }
 
     override fun onDestroy() {
@@ -379,8 +461,8 @@ fun WorkspaceScreenPreview() {
             onPlaybackStateChange = {},
             onBackToLibrary = {},
             onPocketChange = {},
-            onPocketSelect = {},
             onArrangePockets = {},
+            onStartFloatingWindows = {},
         )
     }
 }

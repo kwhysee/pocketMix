@@ -48,8 +48,8 @@ fun WorkspaceScreen(
     onPlaybackStateChange: (PlaybackState) -> Unit,
     onBackToLibrary: () -> Unit,
     onPocketChange: (PocketState) -> Unit,
-    onPocketSelect: (String) -> Unit,
     onArrangePockets: () -> Unit,
+    onStartFloatingWindows: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val openPockets = pockets
@@ -57,7 +57,6 @@ fun WorkspaceScreen(
         .sortedBy { it.order }
     val minimizedPockets = pockets
         .filter { it.status == PocketStatus.MINIMIZED }
-    val frontPocket = openPockets.lastOrNull()
 
     var audioPocketId by remember {
         mutableStateOf<String?>(null)
@@ -104,27 +103,12 @@ fun WorkspaceScreen(
             }
         }
 
-        if (openPockets.size > 1) {
-            Row(
-                modifier = Modifier.horizontalScroll(rememberScrollState()),
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-            ) {
-                openPockets.forEach { pocket ->
-                    val title = videos.findUsableVideo(pocket.videoId)?.title
-                        ?: pocket.videoId
-                    OutlinedButton(
-                        onClick = { onPocketSelect(pocket.videoId) },
-                    ) {
-                        Text(
-                            text = if (pocket.videoId == frontPocket?.videoId) {
-                                "● $title"
-                            } else {
-                                title
-                            },
-                        )
-                    }
-                }
-            }
+        Button(
+            onClick = onStartFloatingWindows,
+            enabled = openPockets.isNotEmpty(),
+            modifier = Modifier.fillMaxWidth(),
+        ) {
+            Text("떠 있는 창으로 보기")
         }
 
         if (minimizedPockets.isNotEmpty()) {

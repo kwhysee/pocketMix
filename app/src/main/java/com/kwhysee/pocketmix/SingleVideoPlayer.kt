@@ -33,6 +33,28 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.compose.material3.Player
 import kotlinx.coroutines.delay
 
+/** 화면의 플레이어를 서비스로 넘기기 전에 현재 위치를 빠짐없이 읽는다. */
+object ActivePocketPlayers {
+    private val players = mutableMapOf<String, ExoPlayer>()
+
+    fun register(videoId: String, player: ExoPlayer) {
+        players[videoId] = player
+    }
+
+    fun unregister(videoId: String, player: ExoPlayer) {
+        if (players[videoId] === player) players.remove(videoId)
+    }
+
+    fun hasActivePlayers(): Boolean = players.isNotEmpty()
+
+    fun pauseAndReadPositions(): Map<String, Long> {
+        return players.mapValues { (_, player) ->
+            player.pause()
+            player.currentPosition.coerceAtLeast(0L)
+        }
+    }
+}
+
 @OptIn(UnstableApi::class, ExperimentalApi::class)
 @kotlin.OptIn(ExperimentalApi::class)
 @Composable
@@ -72,6 +94,7 @@ fun SingleVideoPlayer(
     }
 
     DisposableEffect(player, activity) {
+        ActivePocketPlayers.register(video.videoId, player)
         val savePosition = {
             val positionMs = player.currentPosition.coerceAtLeast(0L)
             val previousState = latestPlaybackState.value
@@ -127,6 +150,7 @@ fun SingleVideoPlayer(
 
         onDispose {
             savePosition()
+            ActivePocketPlayers.unregister(video.videoId, player)
             activity.lifecycle.removeObserver(observer)
             player.removeListener(listener)
             player.release()
